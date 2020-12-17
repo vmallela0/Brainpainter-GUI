@@ -5,13 +5,12 @@ from tkinter import *
 from tkinter.filedialog import askopenfile
 from tkinter.filedialog import askdirectory
 from tkinter.colorchooser import askcolor
-from tkinter.ttk import *
 
 root = Tk()
 root.title("Brainpainter")
-icon = os.path.abspath(os.getcwd()) + "/cort.png" # app logo
-icon_tk = PhotoImage(file = icon)
-root.iconphoto(False, icon_tk)
+# icon = os.path.abspath(os.getcwd()) + "/cort.png" # app logo
+# icon_tk = PhotoImage(file = icon)
+# root.iconphoto(False, icon_tk)
 
 
 # setting up docker connection

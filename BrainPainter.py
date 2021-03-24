@@ -12,6 +12,7 @@ root.title("Brainpainter")
 # icon_tk = PhotoImage(file = icon)
 # root.iconphoto(False, icon_tk)
 
+os.system("docker pull mrazvan22/brain-coloring-v2")
 
 # setting up docker connection
 try:
@@ -20,7 +21,7 @@ try:
     docker_status = Label(root, text = str("Docker connected!"))
     docker_status.config(font =("Helvicta", 14))
     docker_status.grid(row = 0, column = 0, sticky = W, pady = 2, padx = 2)
-    container = client.containers.create("mrazvan22/brain-coloring-v2",
+    container = client.containers.create("mrazvan22/brain-coloring-v2", # sets up the docker container
                                         # name='brainpainter-v2',
                                         tty = True, # keep alive
                                         auto_remove=True) # remove container for reuse
@@ -41,25 +42,33 @@ def cpLocal(source, destination): # copy and paste for docker
 def sedDocker(setting_old, setting_new, line_number): # changes config.py on docker side
     return(f'''docker exec -it {container.id} sed -i "{line_number} s|{setting_old}|{setting_new}|" /home/brain-coloring/config.py''')
 
-def convert_2_bpmodes(angle, mode):
-    # add the view/angle config.py information
+def loadConfig(setting_new):
+    return(f'docker exec -it {container.id} sed -i -e \'$a{setting_new}\' /home/brain-coloring/config.py')
 
+def convert_2_bpmodes(angle, mode):
     if angle == 'Top':
-        return sedDocker("IMG_TYPE = 'cortical-outer-right-hemisphere'", "IMG_TYPE = 'top'", 15)
+        print(loadConfig('IMG_TYPE = \"top\"'))
+        return loadConfig('IMG_TYPE = \"top\"')
     elif angle == 'Bottom':
-        return sedDocker("IMG_TYPE = 'cortical-outer-right-hemisphere'", "IMG_TYPE = 'bottom'", 15)
+        print(loadConfig('IMG_TYPE = \"bottom\"'))
+        return loadConfig('IMG_TYPE = \"bottom\"')
     elif mode == 'Cortical-Outer':
         if 'Right-Hemisphere' == angle:
-            return sedDocker("IMG_TYPE = 'cortical-outer-right-hemisphere'", "IMG_TYPE = 'cortical-outer-right-hemisphere'", 15)
+            print(loadConfig('IMG_TYPE = \"cortical-outer-right-hemisphere\"'))
+            return loadConfig('IMG_TYPE = \"cortical-outer-right-hemisphere\"')
         elif 'Left-Hemisphere' == angle:
-            return sedDocker("IMG_TYPE = 'cortical-outer-right-hemisphere'", "IMG_TYPE = 'cortical-outer-left-hemisphere'", 15)
+            print(loadConfig('IMG_TYPE = \"cortical-outer-left-hemisphere\"'))
+            return loadConfig('IMG_TYPE = \"cortical-outer-left-hemisphere\"')
     elif mode == 'Cortical-Inner':
         if 'Right-Hemisphere' == angle:
-            return sedDocker("IMG_TYPE = 'cortical-outer-right-hemisphere'", "IMG_TYPE = 'cortical-inner-right-hemisphere'", 15)
+            print(loadConfig('IMG_TYPE = \"cortical-inner-right-hemisphere\"'))
+            return loadConfig('IMG_TYPE = \"cortical-innter-right-hemisphere\"')
         elif 'Left-Hemisphere' == angle:
-            return sedDocker("IMG_TYPE = 'cortical-outer-right-hemisphere'", "IMG_TYPE = 'cortical-inner-left-hemisphere'", 15)
+            print(loadConfig('IMG_TYPE = \"cortical-inner-left-hemisphere\"'))
+            return loadConfig('IMG_TYPE = \"cortical-innter-left-hemisphere\"')
     elif mode == 'Subcortical':
-        return sedDocker("IMG_TYPE = 'cortical-outer-right-hemisphere'", "IMG_TYPE = 'subcortical'", 15)
+        print(loadConfig('IMG_TYPE = \"subcortical\"'))
+        return loadConfig('IMG_TYPE = \"subcortical\"')
 
 class Gui:
     def open_file(self, print_row_number):
@@ -135,7 +144,7 @@ class Gui:
 
         #! getting config preferences
         # type
-        brain_types = ["'pial'", "'pial'", "'inflated'", "'white'",]
+        brain_types = ["pial", "inflated", "white",]
         brain_type = StringVar(root)
         brain_type.set(brain_types[0])
         brain_type_chooser = OptionMenu(root, brain_type, *brain_types)
@@ -145,7 +154,7 @@ class Gui:
         brain_type_chooser_label.grid(row = 6, column = 0, sticky = W, pady = 2)
 
         # atlas selection
-        atlas_options = ["'DK'", "'DK'", "'Destrieux'", "'Tourville'"]
+        atlas_options = ["DK", "Destrieux", "Tourville"]
         atlas = StringVar(root)
         atlas.set(atlas_options[0])
         atlas_chooser = OptionMenu(root, atlas, *atlas_options)
@@ -253,28 +262,26 @@ class Gui:
             print(cmdCopy)
             subprocess.Popen(cmdCopy, shell=True).wait() # copying inputs into docker container
 
+            print(loadConfig(f'''INPUT_FILE = \"input/{input_file_name}\" '''))
+            os.system(loadConfig(f'''INPUT_FILE = \"input/{input_file_name}\" '''))
 
-            print(sedDocker('DK_template.csv', input_file_name, 2)) # changes input location in docker
-            subprocess.Popen(sedDocker('DK_template.csv', input_file_name, 2), shell=True).wait()
+            print(loadConfig(f'''OUTPUT_FOLDER = \"output/{output_name}\" '''))
+            subprocess.Popen(loadConfig(f'''OUTPUT_FOLDER = \"output/{output_name}\" '''), shell=True).wait()
 
-            print(sedDocker("OUTPUT_FOLDER = 'output/DK_Output'","OUTPUT_FOLDER = 'output/" + output_name + "'", 4)) # changes output location in docker
-            subprocess.Popen(sedDocker("OUTPUT_FOLDER = 'output/DK_Output'","OUTPUT_FOLDER = 'output/" + output_name + "'", 4), shell=True).wait()
+            # changing the config settings    
+            print(loadConfig(f'''ATLAS = \"{atlas}\" '''))
+            subprocess.Popen(loadConfig(f'''ATLAS = \"{atlas}\" '''), shell=True).wait()
 
-            # changing config settings
-            print(sedDocker("ATLAS = 'DK'", "ATLAS = " + atlas, 7)) # atlas settings
-            subprocess.Popen(sedDocker("ATLAS = 'DK'", "ATLAS = " + atlas, 7), shell=True).wait()
+            subprocess.Popen(convert_2_bpmodes(img_angle, mode), shell=True).wait() # changing the mode/angle
 
-            print(sedDocker("BRAIN_TYPE = 'pial'", "BRAIN_TYPE = " + brain_type, 10)) # brain_type settings
-            os.system(sedDocker("BRAIN_TYPE = 'pial'", "BRAIN_TYPE = " + brain_type, 10))
+            print(loadConfig(f'''BRAIN_TYPE = \"{brain_type}\" '''))
+            subprocess.Popen(loadConfig(f'''BRAIN_TYPE = \"{brain_type}\" '''), shell=True).wait()
 
-            print(convert_2_bpmodes(img_angle, mode))
-            os.system(convert_2_bpmodes(img_angle, mode)) # changing the mode/angle
+            print(loadConfig(f'''COLORS_RGB = {colors} '''))
+            subprocess.Popen(loadConfig(f'''COLORS_RGB = {colors} '''), shell=True).wait()
 
-            print(sedDocker("# default is white", "COLORS_RGB = " + str(colors), 29))
-            os.system(sedDocker("# default is white", "COLORS_RGB = " + str(colors), 29)) # changing colors
-            
-            print(sedDocker("RESOLUTION = (1200, 900)", "RESOLUTION = (" + resolution + ")", 27))
-            os.system(sedDocker("RESOLUTION = (1200, 900)", "RESOLUTION = (" + resolution + ")", 27))
+            print(loadConfig(f'''RESOLUTION = ({resolution})'''))
+            subprocess.Popen(loadConfig(f'''RESOLUTION = ({resolution})'''), shell=True).wait()
 
             print(cmdRun)
             subprocess.Popen(cmdRun, shell=True).wait() # generating images
